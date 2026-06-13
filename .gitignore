@@ -1,0 +1,12 @@
+*.o
+*.elf
+*.bin
+*.imx
+*.img
+
+*.swp
+.vscode/
+
+fake_sd.bin
+sd.img
+load.imx
