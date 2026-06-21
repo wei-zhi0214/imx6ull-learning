@@ -53,10 +53,16 @@ void gpio_intconfig(GPIO_Type *base, uint32_t pin, gpio_interrupt_mode_t interru
 {
     volatile uint32_t* icr;
     uint32_t icrShift;
+    uint32_t icrValue;
+
+    if(interruptMode == kGPIO_IntRisingOrFallingEdge)
+    {
+        base->EDGE_SEL |= (1 << pin); // 任意边沿触发，由EDGE_SEL决定，忽略ICR
+        return;
+    }
+    base->EDGE_SEL &= ~(1 << pin); // 使用ICR寄存器配置中断触发方式
 
     icrShift = pin;
-    base->EDGE_SEL &= ~(1 << pin); // 默认使用ICR寄存器配置中断触发方式
-
     if(pin < 16)
     {
         icr = &base->ICR1; // ICR1配置0-15引脚
@@ -66,27 +72,26 @@ void gpio_intconfig(GPIO_Type *base, uint32_t pin, gpio_interrupt_mode_t interru
         icr = &base->ICR2; // ICR2配置16-31引脚
         icrShift -= 16;
     }
+
+    // ICR每个引脚占2位：00=低电平 01=高电平 10=上升沿 11=下降沿
     switch(interruptMode)
     {
-        case kGPIO_NoIntmode:
-            *icr &= ~(0x3 << (icrShift * 2)); // 无中断
-            break;
         case kGPIO_IntLowLevel:
-            *icr = (*icr & ~(0x3 << (icrShift * 2))) | (0x1 << (icrShift * 2)); // 低电平触发
+            icrValue = 0x0; // 低电平触发
             break;
         case kGPIO_IntHighLevel:
-            *icr = (*icr & ~(0x3 << (icrShift * 2))) | (0x2 << (icrShift * 2)); // 高电平触发
+            icrValue = 0x1; // 高电平触发
             break;
         case kGPIO_IntRisingEdge:
-            *icr = (*icr & ~(0x3 << (icrShift * 2))) | (0x3 << (icrShift * 2)); // 上升沿触发
+            icrValue = 0x2; // 上升沿触发
             break;
         case kGPIO_IntFallingEdge:
-            *icr = (*icr & ~(0x3 << (icrShift * 2))) | (0x4 << (icrShift * 2)); // 下降沿触发
+            icrValue = 0x3; // 下降沿触发
             break;
-        case kGPIO_IntRisingOrFallingEdge:
-            *icr = (*icr & ~(0x3 << (icrShift * 2))) | (0x5 << (icrShift * 2)); // 上升沿或下降沿触发
-            break;
+        case kGPIO_NoIntmode:
         default:
+            icrValue = 0x0;
             break;
     }
+    *icr = (*icr & ~(0x3 << (icrShift * 2))) | (icrValue << (icrShift * 2));
 }
